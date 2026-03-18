@@ -1,0 +1,4 @@
+.env
+database_game_db.ini
+database_dev_game_db.ini
+config.py
