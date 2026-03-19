@@ -96,6 +96,11 @@ def get_insurance_ids_that_entered_stuck(db_cursor):
         (status = 'appeal'
             AND stuck_age_in_days > 60)
     )
+    and story_id not in (
+        select sf.destination
+        from story_fresh sf
+        where sf.type = 'stuck'
+    )
     AND insurance_age_in_days <= 90;
     """
     db_cursor.execute(query)
