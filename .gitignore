@@ -1,6 +1,6 @@
 .env
-database_game_db.ini
+database.ini
 database_dev_game_db.ini
 config.py
 InsuranceStuckEnvironment
-insurancestuck_log.log
+creation_log.log
