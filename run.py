@@ -110,13 +110,16 @@ def get_insurance_ids_that_entered_stuck(db_cursor):
     return all_rows
 
 def get_active_operations_specialist(db_cursor):
-    query = """SELECT contact_id
-        FROM contacts_fresh cf
-        WHERE cf.type = 'operationsSpecialist'
-        AND cf.subtype = 'active'
-        ORDER BY RANDOM()
-        LIMIT 1;
-        """
+    query = """SELECT cf.contact_id
+      FROM contacts_fresh cf
+      JOIN story_fresh sf
+      ON sf.destination = cf.contact_id
+        AND sf.type = 'employment_status'
+        AND sf.status = 'active'
+      WHERE cf.type = 'operationsSpecialist'
+      ORDER BY RANDOM()
+      LIMIT 1;
+      """
     db_cursor.execute(query)
     row = db_cursor.fetchall()
     contact_id = row[0][0]
