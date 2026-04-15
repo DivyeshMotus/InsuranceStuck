@@ -244,7 +244,7 @@ def make_stuck_stories():
             print("Updated story fresh table")
             
             # 9. Insert into Age Table and get age_id
-            age_id = insert_into_age_table(next_story_id, 'repo', db_cursor, db_connection)
+            age_id = insert_into_age_table(next_story_id, 'stuck', db_cursor, db_connection)
             print(f"Generated age id: {age_id}")
 
             # 10. Update story fresh table with age_id
