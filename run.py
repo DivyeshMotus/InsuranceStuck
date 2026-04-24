@@ -237,11 +237,24 @@ def insert_into_story_fresh_create(insurance_id, ops_specialist, cursor):
     cursor.execute(query, (ops_specialist, insurance_id))
     return cursor.fetchone()[0]
 
+def insert_into_story(next_story_id, insurance_id, ops_specialist, cursor):
+    """
+    Insert a new stuck story into story_fresh, letting the sequence
+    auto-generate story_id. Returns the generated story_id.
+    """
+    query = """
+        INSERT INTO story
+            (story_id, origin, destination, type, status, created_at, future_timestamp, username)
+        VALUES (%s, %s, %s, 'stuck', 'start', NOW(), NOW(), 'service@motusnova.com')
+    """
+    cursor.execute(query, (next_story_id, ops_specialist, insurance_id))
+    return cursor.fetchone()[0]
 
 def update_age_in_story_fresh(story_id, age_id, cursor):
     query = """
         UPDATE story_fresh
         SET created_at = NOW(),
+            username = 'service@motusnova.com',
             age_id = %s
         WHERE story_id = %s
     """
@@ -250,8 +263,8 @@ def update_age_in_story_fresh(story_id, age_id, cursor):
 
 def insert_age_in_story(story_id, age_id, cursor):
     query = """
-        INSERT INTO story (story_id, created_at, age_id)
-        VALUES (%s, NOW(), %s)
+        INSERT INTO story (story_id, created_at, username, age_id)
+        VALUES (%s, NOW(), 'service@motusnova.com', %s)
     """
     cursor.execute(query, (story_id, age_id))
 
@@ -268,7 +281,6 @@ def reopen_story_fresh(story_id, new_notes, cursor):
         WHERE story_id = %s
     """
     cursor.execute(query, (new_notes, story_id))
-
 
 def insert_reopen_history_row(story_id, new_notes, cursor):
     """Append a 'start' history row to `story` for a reopened stuck story."""
@@ -287,10 +299,8 @@ def create_fresh_stuck_story(row, conn, cursor):
     insurance_id = row['insurance_id']
     try:
         ops_specialist = get_active_operations_specialist(cursor)
-
-        # story_id is now returned by the INSERT itself via RETURNING
         next_story_id = insert_into_story_fresh_create(insurance_id, ops_specialist, cursor)
-
+        insert_into_story(next_story_id, insurance_id, ops_specialist, cursor)
         age_id = insert_into_age_table(next_story_id, 'stuck', cursor)
         update_age_in_story_fresh(next_story_id, age_id, cursor)
         insert_age_in_story(next_story_id, age_id, cursor)
