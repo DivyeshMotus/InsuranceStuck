@@ -64,7 +64,7 @@ BUSINESS_DAY_THRESHOLDS = {
 # ---------- DB connection ----------
 
 def create_connection():
-    params = game_db_config()
+    params = ocho_dev_game_db_config()
     conn = psycopg2.connect(**params)
     return conn, conn.cursor()
 
@@ -121,7 +121,6 @@ def get_candidate_insurance_rows(db_cursor):
             ON existing_stuck.insurance_id = sf_ins.story_id
         WHERE sf_ins.type = 'insurance'
           AND ins.earliest_insurance_update >= '2025-06-01'
-          AND EXTRACT(EPOCH FROM (NOW() - ins.earliest_insurance_update)) / 86400 <= 90;
     """
     db_cursor.execute(query)
     rows = db_cursor.fetchall()
@@ -248,7 +247,6 @@ def insert_into_story(next_story_id, insurance_id, ops_specialist, cursor):
         VALUES (%s, %s, %s, 'stuck', 'start', NOW(), NOW(), 'service@motusnova.com')
     """
     cursor.execute(query, (next_story_id, ops_specialist, insurance_id))
-    return cursor.fetchone()[0]
 
 def update_age_in_story_fresh(story_id, age_id, cursor):
     query = """
@@ -268,6 +266,13 @@ def insert_age_in_story(story_id, age_id, cursor):
     """
     cursor.execute(query, (story_id, age_id))
 
+def update_age_table(age_id, cursor):
+    query = """
+        UPDATE age_table
+        SET end_time = NOW()
+        WHERE age_id = %s
+    """
+    cursor.execute(query, (age_id, ))
 
 def reopen_story_fresh(story_id, new_notes, cursor):
     """Flip an existing completed stuck story back to 'start' with appended notes."""
@@ -291,6 +296,12 @@ def insert_reopen_history_row(story_id, new_notes, cursor):
     """
     cursor.execute(query, (story_id, new_notes))
 
+def get_current_age_id(stuck_story_id, cursor):
+    query="""
+        SELECT age_id FROM story_fresh WHERE story_id = %s;
+    """
+    cursor.execute(query, (stuck_story_id, ))
+    return cursor.fetchone()[0]
 
 # ---------- Per-row orchestration ----------
 
@@ -323,9 +334,12 @@ def reopen_stuck_story(row, conn, cursor):
 
     try:
         new_notes = make_reopen_notes(existing_notes, insurance_status)
-
+        current_age_id = get_current_age_id(stuck_story_id, cursor)
+        logging.info(f"Current age id: {current_age_id}")
         reopen_story_fresh(stuck_story_id, new_notes, cursor)
         insert_reopen_history_row(stuck_story_id, new_notes, cursor)
+        update_age_table(current_age_id, cursor)
+        logging.info("Updated.")
         age_id = insert_into_age_table(stuck_story_id, 'stuck', cursor)
         update_age_in_story_fresh(stuck_story_id, age_id, cursor)
         insert_age_in_story(stuck_story_id, age_id, cursor)
@@ -358,6 +372,8 @@ def send_completion_sms(insurance_id_list):
 # ---------- Main ----------
 
 def make_stuck_stories():
+    cursor = None
+    conn = None 
     try:
         conn, cursor = create_connection()
 

@@ -5,3 +5,4 @@ config.py
 InsuranceStuckEnvironment
 creation_log.log
 candidates.csv
+make_stuck_stories.log
