@@ -78,16 +78,6 @@ def calculate_business_days(start_ts):
     return len(pd.bdate_range(start=start_ts.date(), end=pd.Timestamp.now().date()))
 
 
-# ---------- Story ID generation ----------
-
-def get_next_story_id(cursor):
-    cursor.execute(
-        "SELECT setval('story_fresh_story_id_seq', COALESCE(MAX(story_id), 0) + 1, false) FROM story_fresh;"
-    )
-    cursor.execute("SELECT nextval('story_fresh_story_id_seq');")
-    return cursor.fetchone()[0]
-
-
 # ---------- Candidate fetch ----------
 
 def get_candidate_insurance_rows(db_cursor):
@@ -229,22 +219,23 @@ def insert_into_age_table(story_id, story_type, cursor):
     return cursor.fetchone()[0]
 
 
-def insert_story_fresh_fresh(story_id, insurance_id, ops_specialist, cursor):
-    query = """
-        INSERT INTO story_fresh
-            (story_id, origin, destination, type, status, created_at, future_timestamp, username)
-        VALUES (%s, %s, %s, 'stuck', 'start', NOW(), NOW(), 'service@motusnova.com')
+def insert_into_story_fresh_create(insurance_id, ops_specialist, cursor):
     """
-    cursor.execute(query, (story_id, ops_specialist, insurance_id))
-
-
-def insert_into_story_fresh_create(story_id, insurance_id, ops_specialist, cursor):
+    Insert a new stuck story into story_fresh, letting the sequence
+    auto-generate story_id. Returns the generated story_id.
+    """
+    # Advance the sequence to be safe, then let the INSERT claim the next value.
+    cursor.execute(
+        "SELECT setval('story_fresh_story_id_seq', COALESCE(MAX(story_id), 0) + 1, false) FROM story_fresh;"
+    )
     query = """
         INSERT INTO story
-            (story_id, origin, destination, type, status, created_at, future_timestamp, username)
-        VALUES (%s, %s, %s, 'stuck', 'start', NOW(), NOW(), 'service@motusnova.com')
+            (origin, destination, type, status, created_at, future_timestamp, username)
+        VALUES (%s, %s, 'stuck', 'start', NOW(), NOW(), 'service@motusnova.com')
+        RETURNING story_id
     """
-    cursor.execute(query, (story_id, ops_specialist, insurance_id))
+    cursor.execute(query, (ops_specialist, insurance_id))
+    return cursor.fetchone()[0]
 
 
 def update_age_in_story_fresh(story_id, age_id, cursor):
@@ -296,10 +287,10 @@ def create_fresh_stuck_story(row, conn, cursor):
     insurance_id = row['insurance_id']
     try:
         ops_specialist = get_active_operations_specialist(cursor)
-        next_story_id  = get_next_story_id(cursor)
 
-        insert_into_story_fresh_create(next_story_id, insurance_id, ops_specialist, cursor)
-        insert_story_fresh_fresh(next_story_id, insurance_id, ops_specialist, cursor)
+        # story_id is now returned by the INSERT itself via RETURNING
+        next_story_id = insert_into_story_fresh_create(insurance_id, ops_specialist, cursor)
+
         age_id = insert_into_age_table(next_story_id, 'stuck', cursor)
         update_age_in_story_fresh(next_story_id, age_id, cursor)
         insert_age_in_story(next_story_id, age_id, cursor)
@@ -357,8 +348,6 @@ def send_completion_sms(insurance_id_list):
 # ---------- Main ----------
 
 def make_stuck_stories():
-    conn = None
-    cursor = None
     try:
         conn, cursor = create_connection()
 
@@ -398,5 +387,6 @@ def make_stuck_stories():
 if __name__ == "__main__":
     setup_logging()
     logging.info("INSURANCE STUCK STORIES CREATION")
+    logging.info(f"Run date: {datetime.date.today()}")
     make_stuck_stories()
     logging.info("Script completed")
