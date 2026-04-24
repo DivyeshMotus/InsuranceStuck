@@ -4,3 +4,4 @@ database_dev_game_db.ini
 config.py
 InsuranceStuckEnvironment
 creation_log.log
+candidates.csv
