@@ -229,7 +229,7 @@ def insert_into_story_fresh_create(insurance_id, ops_specialist, cursor):
         "SELECT setval('story_fresh_story_id_seq', COALESCE(MAX(story_id), 0) + 1, false) FROM story_fresh;"
     )
     query = """
-        INSERT INTO story
+        INSERT INTO story_fresh
             (origin, destination, type, status, created_at, future_timestamp, username)
         VALUES (%s, %s, 'stuck', 'start', NOW(), NOW(), 'service@motusnova.com')
         RETURNING story_id
