@@ -64,7 +64,7 @@ BUSINESS_DAY_THRESHOLDS = {
 # ---------- DB connection ----------
 
 def create_connection():
-    params = ocho_dev_game_db_config()
+    params = game_db_config()
     conn = psycopg2.connect(**params)
     return conn, conn.cursor()
 
