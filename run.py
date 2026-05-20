@@ -124,6 +124,7 @@ def get_candidate_insurance_rows(db_cursor):
         ON cf.contact_id = sf_ins.destination
         WHERE sf_ins.type = 'insurance'
           AND ins.earliest_insurance_update >= '2025-06-01'
+          AND cf.subtype = 'dmeReferral'
     """
     db_cursor.execute(query)
     rows = db_cursor.fetchall()
