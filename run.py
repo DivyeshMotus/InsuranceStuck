@@ -57,7 +57,8 @@ BUSINESS_DAY_THRESHOLDS = {
     'telehealth': 14,
     'HMO': 14,
     'missingPatientInfo': 2,
-    'missingProductInfo': 2
+    'missingProductInfo': 2,
+    'insufficientDiagnosis': 1
 }
 
 
@@ -119,8 +120,11 @@ def get_candidate_insurance_rows(db_cursor):
             ORDER BY destination, created_at DESC
         ) existing_stuck
             ON existing_stuck.insurance_id = sf_ins.story_id
+        LEFT JOIN contacts_fresh cf
+        ON cf.contact_id = sf_ins.destination
         WHERE sf_ins.type = 'insurance'
           AND ins.earliest_insurance_update >= '2025-06-01'
+          AND cf.subtype != 'dmeReferral'
     """
     db_cursor.execute(query)
     rows = db_cursor.fetchall()
